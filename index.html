@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+    <title>EcoCoins</title>
+    
+    <!-- Google Maps API -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&libraries=places" async defer></script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                teal: '#0F8F6D',       // Foca body - Main
+                purple: '#7A3EB1',     // Foca belly - Secondary
+                lightGreen: '#5FD45E', // Eco symbol - Success
+                darkPurple: '#4A1A71', // Outlines - Headers
+                petrol: '#0B4639',     // Text - Body
+                beige: '#F5EEDD',      // Background
+              }
+            },
+            fontFamily: {
+              sans: ['Segoe UI', 'Roboto', 'Helvetica Neue', 'sans-serif'],
+            },
+            animation: {
+              'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'fade-in': 'fadeIn 0.5s ease-out forwards',
+              'slide-up': 'slideUp 0.4s ease-out forwards',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              slideUp: {
+                '0%': { transform: 'translateY(20px)', opacity: '0' },
+                '100%': { transform: 'translateY(0)', opacity: '1' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        background-color: #F5EEDD;
+        -webkit-tap-highlight-color: transparent;
+      }
+      /* Hide scrollbar for cleaner mobile look */
+      ::-webkit-scrollbar {
+        width: 0px;
+        background: transparent;
+      }
+      .pb-safe {
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+      
+      /* --- PHASE 4: MAP CSS --- */
+
+      /* Map Container */
+      .map-container {
+        /* padding: 24px; handled by view wrapper */
+        background: #F5EEDD;
+        min-height: 100vh;
+      }
+
+      .map-header {
+        text-align: center;
+        margin-bottom: 24px;
+      }
+
+      .map-header h2 {
+        color: #4A1A71;
+        font-size: 28px;
+        font-weight: bold;
+      }
+
+      .map-header p {
+        color: #7A3EB1;
+      }
+
+      /* Map Filters */
+      .map-filters {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .filter-btn {
+        padding: 8px 16px;
+        border: 2px solid #E0E0E0;
+        border-radius: 24px;
+        background: white;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-weight: 600;
+        font-size: 14px;
+        white-space: nowrap;
+      }
+
+      .filter-btn.active {
+        background: #0F8F6D;
+        color: white;
+        border-color: #0F8F6D;
+      }
+
+      .filter-btn:hover:not(.active) {
+        border-color: #0F8F6D;
+        transform: translateY(-2px);
+      }
+
+      /* Search Box */
+      .search-box {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+      }
+
+      .search-input {
+        flex: 1;
+        min-width: 200px;
+        padding: 12px 16px;
+        border: 2px solid #E0E0E0;
+        border-radius: 12px;
+        font-size: 16px;
+      }
+      
+      .search-input:focus {
+        outline: none;
+        border-color: #0F8F6D;
+      }
+
+      .search-btn,
+      .location-btn {
+        padding: 12px 20px;
+        border: none;
+        border-radius: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .search-btn {
+        background: #0F8F6D;
+        color: white;
+      }
+
+      .location-btn {
+        background: #7A3EB1;
+        color: white;
+      }
+
+      .search-btn:hover {
+        background: #0B7A5A;
+        transform: scale(1.05);
+      }
+
+      .location-btn:hover {
+        background: #632F8E;
+        transform: scale(1.05);
+      }
+
+      /* Map */
+      #map {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      }
+
+      /* Points List */
+      .points-list {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        margin-top: 20px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      }
+
+      .points-list h3 {
+        color: #4A1A71;
+        margin-bottom: 20px;
+        font-weight: bold;
+        font-size: 18px;
+      }
+
+      .point-list-item {
+        display: flex;
+        gap: 16px;
+        padding: 16px;
+        border: 2px solid #F5EEDD;
+        border-radius: 12px;
+        margin-bottom: 12px;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+
+      .point-list-item:hover {
+        border-color: #0F8F6D;
+        background: #F0FFF4;
+        transform: translateX(4px);
+      }
+
+      .point-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        color: white;
+        flex-shrink: 0;
+      }
+
+      .point-info {
+        flex: 1;
+      }
+
+      .point-info h4 {
+        color: #4A1A71;
+        margin-bottom: 4px;
+        font-weight: bold;
+      }
+
+      .point-address {
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 4px;
+      }
+
+      .point-distance {
+        font-size: 14px;
+        color: #0F8F6D;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      .point-materials {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 8px;
+      }
+
+      .material-tag {
+        font-size: 11px;
+        padding: 4px 8px;
+        background: #F5EEDD;
+        border-radius: 6px;
+        color: #0B4639;
+      }
+
+      .material-tag.special {
+        background: #7A3EB1;
+        color: white;
+      }
+
+      .point-rating {
+        font-size: 14px;
+        color: #F39C12;
+        font-weight: 600;
+      }
+
+      .point-arrow {
+        font-size: 24px;
+        color: #0F8F6D;
+        display: flex;
+        align-items: center;
+      }
+
+      /* Map Legend */
+      .map-legend {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 20px;
+      }
+
+      .map-legend h4 {
+        color: #4A1A71;
+        margin-bottom: 12px;
+        font-weight: bold;
+      }
+
+      .legend-items {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+      }
+
+      .legend-item {
+        font-size: 14px;
+        color: #0B4639;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      /* Point Detail Modal - COMPLETO */
+      .point-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.6); /* Fundo semi-transparente */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        overflow-y: auto;
+      }
+
+      .point-modal-content {
+        background: white;
+        border-radius: 16px;
+        max-width: 90%;
+        width: 500px;
+        max-height: 90vh;
+        margin: 20px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        position: relative;
+        overflow-y: auto;
+      }
+
+      .close-modal {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        background: none;
+        border: none;
+        font-size: 30px;
+        color: #4A1A71;
+        cursor: pointer;
+        z-index: 10;
+        transition: color 0.2s;
+      }
+
+      .close-modal:hover {
+        color: #7A3EB1;
+      }
+
+      /* Modal Detail Sections */
+      .point-detail-header {
+        padding: 30px 20px;
+        color: white;
+        border-top-left-radius: 16px;
+        border-top-right-radius: 16px;
+        text-align: center;
+      }
+
+      .point-detail-icon {
+        font-size: 50px;
+        margin-bottom: 10px;
+      }
+
+      .point-detail-header h2 {
+        font-size: 26px;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+
+      .point-detail-header p {
+        font-size: 14px;
+        opacity: 0.9;
+      }
+
+      .point-detail-body {
+        padding: 20px 30px;
+      }
+
+      .detail-section {
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 1px dashed #E0E0E0;
+      }
+
+      .detail-section:last-child {
+        border-bottom: none;
+      }
+
+      .detail-section h3 {
+        color: #0F8F6D;
+        font-size: 18px;
+        margin-bottom: 10px;
+        font-weight: bold;
+      }
+
+      .detail-section p {
+        color: #555;
+        line-height: 1.5;
+        font-size: 14px;
+      }
+
+      .materials-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .material-chip {
+        font-size: 13px;
+        padding: 6px 10px;
+        background: #E0F7FA; /* Cor clara para materiais */
+        border-radius: 20px;
+        color: #0B4639;
+        font-weight: 500;
+      }
+
+      .material-chip.special {
+        background: #7A3EB1;
+        color: white;
+      }
+
+      .rating-display {
+        font-size: 16px;
+        color: #F39C12;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .verified-badge {
+        background: #5FD45E;
+        color: white;
+        padding: 4px 8px;
+        border-radius: 10px;
+        font-size: 12px;
+      }
+
+      .detail-actions {
+        display: flex;
+        gap: 15px;
+        margin-top: 20px;
+      }
+
+      .detail-actions .btn {
+        flex: 1;
+        padding: 12px 20px;
+        border-radius: 10px;
+        color: white;
+        font-weight: 700;
+        cursor: pointer;
+        transition: opacity 0.2s;
+        text-align: center;
+      }
+
+      .detail-actions .btn:hover {
+        opacity: 0.9;
+      }
+
+      /* Loading/Error Messages */
+      .loading-message, .error-message, .nearest-toast {
+          position: fixed;
+          top: 80px;
+          left: 50%;
+          transform: translateX(-50%);
+          padding: 15px 30px;
+          border-radius: 10px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+          z-index: 1001;
+          font-weight: 600;
+          transition: opacity 0.5s ease;
+          opacity: 1;
+          pointer-events: none;
+          min-width: 300px;
+          text-align: center;
+      }
+
+      .error-message {
+          background: #E74C3C;
+          color: white;
+      }
+
+      .loading-message {
+          background: #0F8F6D;
+          color: white;
+      }
+
+      /* Nearest Points Notification (Toast) */
+      .nearest-toast {
+          background: white;
+          color: #4A1A71;
+          border: 2px solid #0F8F6D;
+          padding: 20px;
+          text-align: left;
+      }
+
+      .nearest-notification h3 {
+          color: #0F8F6D;
+          margin-top: 0;
+          margin-bottom: 10px;
+          font-weight: bold;
+      }
+
+      .nearest-item {
+          margin-bottom: 8px;
+          padding-left: 8px;
+          border-left: 3px solid #7A3EB1;
+      }
+
+      .nearest-item strong {
+          display: block;
+          color: #4A1A71;
+      }
+
+      .nearest-item p {
+          margin: 0;
+          font-size: 13px;
+          color: #555;
+      }
+      
+      @media (max-width: 600px) {
+          .map-filters, .search-box {
+              flex-direction: column;
+          }
+
+          .filter-btn, .search-btn, .location-btn, .search-input {
+              width: 100%;
+              margin-bottom: 5px;
+          }
+
+          .search-box {
+              gap: 5px;
+          }
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.32.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

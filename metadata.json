@@ -1,0 +1,7 @@
+{
+  "name": "EcoCoins",
+  "description": "Revolutionizing recycling education with AI-powered waste identification and rewards.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
